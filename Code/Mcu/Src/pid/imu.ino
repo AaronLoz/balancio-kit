@@ -49,7 +49,7 @@
 // for both classes must be in the include path of your project
 #include "imu.h"
 
-#include "I2Cdev.h"
+//#include "I2Cdev.h"
 
 #include "MPU6050_6Axis_MotionApps_V6_12.h"
 //#include "MPU6050.h" // not necessary if using MotionApps include file
@@ -120,12 +120,12 @@ void imu_setup(void){
   Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
 
   // supply your own offsets here.
-  mpu.setXAccelOffset(764);
-  mpu.setYAccelOffset(-1307);
-  mpu.setZAccelOffset(200);
-  mpu.setXGyroOffset(84);
+  mpu.setXAccelOffset(-3832);
+  mpu.setYAccelOffset(1480);
+  mpu.setZAccelOffset(1158);
+  mpu.setXGyroOffset(-15);
   mpu.setYGyroOffset(-52);
-  mpu.setZGyroOffset(16);
+  mpu.setZGyroOffset(-15);
 }
 
 
@@ -171,12 +171,12 @@ void imu_setup_dmp(void) {
 
   // supply your own gyro offsets here, scaled for min sensitivity
 
-  mpu.setXAccelOffset(764);
-  mpu.setYAccelOffset(-1307);
-  mpu.setZAccelOffset(200);
-  mpu.setXGyroOffset(84);
+  mpu.setXAccelOffset(-3832);
+  mpu.setYAccelOffset(1480);
+  mpu.setZAccelOffset(1158);
+  mpu.setXGyroOffset(-15);
   mpu.setYGyroOffset(-52);
-  mpu.setZGyroOffset(16);
+  mpu.setZGyroOffset(-14);
   
   // make sure it worked (returns 0 if so)
   if (devStatus == 0) {
@@ -255,11 +255,12 @@ void getEulerAngles_dmp(float *angles){
 //   
 //}
 
-void getAccelGyro(float* ax, float* az, float* gy){
+void getAccelGyro(float* ay, float* az, float* gx, float* gz){
   mpu.getMotion6(&ax_b, &ay_b, &az_b, &gx_b, &gy_b, &gz_b);  // gyro (+/- 250 deg/s) accel (+/- 2g)
-  ax[0] = 4*(ax_b/65535.0);  // g 
+  ay[0] = 4*(ay_b/65535.0);  // g 
   az[0] = 4*(az_b/65535.0);  // g 
-  gy[0] = 2*250*(gy_b/(65535.0));  // deg/s
+  gx[0] = -2*250*(gx_b/(65535.0));  // deg/s
+  gz[0] = -2*250*(gz_b/(65535.0));  // deg/s
    
 }
 
