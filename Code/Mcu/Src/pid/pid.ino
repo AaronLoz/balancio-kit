@@ -8,15 +8,15 @@
 //#include <DabbleESP32.h>
 #include <Ps3Controller.h>
 
-#define Kp  3000.0  //3000.0  //2700.0  // 2000 //Ku= 8000
-#define Kd  10.0    //10.0    //9.0     // 20.0  
-#define Ki  70000.0 //60000.0 //53000.0 //22000    
+#define Kp  2000    //3000.0  //3000.0  //2700.0  // 2000 //Ku= 8000
+#define Kd  20.0    //10.0    //10.0    //9.0     // 20.0  
+#define Ki  5000   //70000.0 //60000.0 //53000.0 //22000    
 #define Kyaw 0.03
 #define sampleTime  0.01  // 100 Hz
-#define zero_targetAngle -0.01  // Calibrated point
+#define zero_targetAngle -0.0  // Calibrated point
 
 float targetAngle = 0.0;
-float currentAngle = 0.0, prevAngle = 0.0, error = 0.0, prevError = 0.0, errorSum = 0.0, yaw = 0.0, targetYaw;
+float currentAngle = 0.0, prevAngle = 0.0, error = 0.0, prevError = 0.0, errorSum = 0.0, yaw = 0.0, targetYaw = 0.0;
 int pwm = 0;
 volatile bool controlFlag = false;
 
@@ -101,6 +101,8 @@ void loop() {
         Serial.print(currentAngle, 4);
         Serial.print("  Yaw:  ");
         Serial.print(yaw, 4);
+        Serial.print("  Gy:  ");
+        Serial.print(gy, 4);
         Serial.print("  PWM:  ");
         Serial.print(pwm);
         Serial.print("  Loop time: ");
@@ -130,7 +132,9 @@ void loop() {
 
 
   fwd = -Ps3.data.analog.stick.ry / 128.0;
-  rot = Ps3.data.analog.stick.lx / 128.0;
+  //rot = Ps3.data.analog.stick.lx / 128.0;
+  
+  targetYaw += Ps3.data.analog.stick.lx / 50.0;
 
   targetAngle = fwd * 0.05 + zero_targetAngle;
 
