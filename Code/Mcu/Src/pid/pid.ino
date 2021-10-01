@@ -14,10 +14,10 @@
 //#include <DabbleESP32.h>
 #include <Ps3Controller.h>
 
-#define Kp  2000    //3000.0  //3000.0  //2700.0  // 2000 //Ku= 8000
-#define Kd  20.0    //10.0    //10.0    //9.0     // 20.0  
-#define Ki  5000   //70000.0 //60000.0 //53000.0 //22000    
-#define Kyaw 0.03
+#define Kp  2500.0  //3000.0  //2700.0  // 2000 //Ku= 8000 tu=
+#define Kd  15.0    //10.0    //9.0     // 20.0  
+#define Ki  60000.0 //60000.0 //53000.0 //22000    
+#define Kyaw 0.02
 #define sampleTime  0.01  // 100 Hz
 #define zero_targetAngle -0.0  // Calibrated point
 
@@ -30,11 +30,10 @@ volatile bool controlFlag = false;
 
 bool ps3_joy = false;
 bool mit_joy = true;
-#define yaw_ascii 89
-#define pitch_ascii 80
-uint8_t app_data_buff[20];
-String app_data;
-String app_str_yaw;
+#define yaw_ascii "Y"
+#define pitch_ascii "P"
+char in_byte;
+String app_data = "";
 float app_float_yaw;
 float app_float_pitch;
 float fwd = 0;
@@ -64,16 +63,16 @@ void setup() {
 
   // Bluetooth init
   //  Dabble.begin("MyEsp32");       //set bluetooth name of your device
-  if (ps3_joy){
+  if (ps3_joy) {
     ps3_setup();
   }
-  
+
   //Bluetooth Setup
-  if (mit_joy){
+  if (mit_joy) {
     SerialBT.begin("Balancio"); //Bluetooth device name
     app_data.reserve(20);
   }
-  
+
   // Timer init. (ISR at 100 Hz)
   timer_init();
 }
@@ -87,14 +86,16 @@ void loop() {
 
   if (controlFlag) {
 
-    if (ps3_joy){
+    if (ps3_joy) {
       x_down = Ps3.event.button_down.cross;
       if (x_down) {
         stop_command = abs(stop_command - 1);
       }
     }
-    else {stop_command = false;}
-    
+    else {
+      stop_command = false;
+    }
+
     if (!stop_command) {
       getAccelGyro(&ax, &az, &gy, &gz);
       accelPitch = atan2(ax, az) * RAD_TO_DEG;
@@ -117,9 +118,17 @@ void loop() {
 
       yaw = yaw + gz * DEG_TO_RAD;
       rot = Kyaw * (yaw - targetYaw);
-      
-      L_motor(pwm + int(rot * 60));
-      R_motor(pwm - int(rot * 60));
+
+      if (currentAngle < 0.6 && currentAngle > -0.6 ) //when the robot falls we turn it off
+      {
+        L_motor(pwm + int(rot * 60));
+        R_motor(pwm - int(rot * 60));
+      }
+      else
+      {
+        L_motor(0);
+        R_motor(0);
+      }
 
       if (false) {
         Serial.print("fwd: ");
@@ -138,6 +147,10 @@ void loop() {
         time_ctr = micros() - time_ctr;
         Serial.println(time_ctr);
         time_ctr = micros();
+        Serial.print("Received Yaw: ");
+        Serial.println(app_data.toFloat() - 128);
+        Serial.print("Received Pitch: ");
+        Serial.println((app_data.toFloat() - 128) / 128);
       }
 
     }
@@ -161,37 +174,40 @@ void loop() {
 
   // PS3 Joy
   if (ps3_joy) {
-      fwd = -Ps3.data.analog.stick.ry / 128.0;
-      //rot = Ps3.data.analog.stick.lx / 128.0;
-      targetYaw += Ps3.data.analog.stick.lx / 50.0;
+    fwd = -Ps3.data.analog.stick.ry / 128.0;
+    //rot = Ps3.data.analog.stick.lx / 128.0;
+    targetYaw += Ps3.data.analog.stick.lx / 50.0;
   }
 
   // MIT Inventor
-//  if (mit_joy){
-//    if (SerialBT.available()) {
-//      //app_data[0]=SerialBT.read();
-//      app_data=SerialBT.read();
-//      if (app_data == yaw_ascii){
-//        //app_str_yaw="";
-//        Serial.print("Received Yaw: ");
-//        for (i=2; i<20; i++){
-//          if (app_data[i] == 0x0A){break;}
-//          //app_str_yaw += String(app_data[i], DEC);
-//          app_str_yaw[i-2] = app_data[i];
-//          //app_str_yaw += String(0x0A, DEC);
-//          Serial.write(app_data[i]);
-//        }     
-//        app_float_yaw = app_str_yaw.toFloat();
-//        Serial.print(app_float_yaw);
-//        //Serial.print(app_str_yaw);
-//      }
-//      else if (app_data == pitch_ascii){
-//        Serial.print("Received Pitch: ");
-//      }
-//      //Serial.write(app_data.c_str());
-//      Serial.println(app_data);
-//    }
-//  }
+  if (mit_joy) {
+    if (SerialBT.available()) {
+
+      in_byte = SerialBT.read();
+
+      if (in_byte != '-') //would like to use /n as delimiter but dunno how to send non printables in app inventor
+      {
+        app_data += String(in_byte);
+      }
+      else
+      {
+        if (app_data.startsWith(yaw_ascii))
+        {
+          app_data.setCharAt(0, '0');
+
+          targetYaw = (app_data.toFloat() - 128);
+        }
+
+        else if (app_data.startsWith(pitch_ascii))
+        {
+          app_data.setCharAt(0, '0');
+
+          fwd = (app_data.toFloat() - 128) / 64;
+        }
+        app_data = "";
+      }
+    }
+  }
 
   targetAngle = fwd * 0.05 + zero_targetAngle;
 
