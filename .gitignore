@@ -174,9 +174,11 @@ cython_debug/
 My_docs/
 mcu_old/
 .idea/
-.vscode/
 Code/Simulation/urdf/body.dae
 Code/Simulation/urdf/bodyS.dae
 Logs/
 Models/
-
+my_logs/
+my_hyperparams/
+my_models/
+.vscode/
