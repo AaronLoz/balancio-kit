@@ -120,12 +120,12 @@ void imu_setup(void){
   Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
 
   // supply your own offsets here.
-  mpu.setXAccelOffset(-3832);
-  mpu.setYAccelOffset(1480);
-  mpu.setZAccelOffset(1158);
-  mpu.setXGyroOffset(-15);
-  mpu.setYGyroOffset(-52);
-  mpu.setZGyroOffset(-15);
+  mpu.setXAccelOffset(-717);
+  mpu.setYAccelOffset(-512);
+  mpu.setZAccelOffset(4160);
+  mpu.setXGyroOffset( 66);
+  mpu.setYGyroOffset( 12);
+  mpu.setZGyroOffset( 11);
 }
 
 
@@ -171,12 +171,12 @@ void imu_setup_dmp(void) {
 
   // supply your own gyro offsets here, scaled for min sensitivity
 
-  mpu.setXAccelOffset(-3832);
-  mpu.setYAccelOffset(1480);
-  mpu.setZAccelOffset(1158);
-  mpu.setXGyroOffset(-15);
-  mpu.setYGyroOffset(-52);
-  mpu.setZGyroOffset(-14);
+  mpu.setXAccelOffset(-717);
+  mpu.setYAccelOffset(-512);
+  mpu.setZAccelOffset(4160);
+  mpu.setXGyroOffset( 66);
+  mpu.setYGyroOffset( 12);
+  mpu.setZGyroOffset( 11);
   
   // make sure it worked (returns 0 if so)
   if (devStatus == 0) {

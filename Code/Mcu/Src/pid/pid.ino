@@ -14,16 +14,17 @@
 //#include <DabbleESP32.h>
 #include <Ps3Controller.h>
 
-#define Kp  2500.0  //3000.0  //2700.0  // 2000 //Ku= 8000 tu=
-#define Kd  15.0    //10.0    //9.0     // 20.0  
-#define Ki  60000.0 //60000.0 //53000.0 //22000    
+#define Kp  15000.0  //3000.0  //2700.0  // 2000 //Ku= 8000 tu=
+#define Kd  9000.0    //10.0    //9.0     // 20.0  
+#define Ki  30000.0 //60000.0 //53000.0 //22000    
 #define Kyaw 0.02
 #define sampleTime  0.01  // 100 Hz
-#define zero_targetAngle -0.0  // Calibrated point
+#define zero_targetAngle 0.02  // Calibrated point
 
 uint8_t i;
 
-float targetAngle = 0.0;
+float angles[3];
+float targetAngle = 0.012;
 float currentAngle = 0.0, prevAngle = 0.0, error = 0.0, prevError = 0.0, errorSum = 0.0, yaw = 0.0, targetYaw = 0.0;
 int pwm = 0;
 volatile bool controlFlag = false;
@@ -60,6 +61,7 @@ void setup() {
 
   // IMU init
   imu_setup();
+  //imu_setup_dmp();
 
   // Bluetooth init
   //  Dabble.begin("MyEsp32");       //set bluetooth name of your device
@@ -97,29 +99,38 @@ void loop() {
     }
 
     if (!stop_command) {
+
+      // Complementary Filter
       getAccelGyro(&ax, &az, &gy, &gz);
       accelPitch = atan2(ax, az) * RAD_TO_DEG;
       pitch = (tau) * (pitch + (-gy) * sampleTime) + (1 - tau) * (accelPitch);
-      currentAngle = pitch * DEG_TO_RAD;
+
+      //exponential filter
+      currentAngle = pitch * DEG_TO_RAD*0.3 + currentAngle *0.7;
+
+      // DMP
+//      getEulerAngles_dmp(angles);
+//      currentAngle = angles[2];
+//      gy = RAD_TO_DEG * (currentAngle - prevAngle) / sampleTime;
 
       error = currentAngle - targetAngle;
       errorSum += error;
-      errorSum = constrain(errorSum, -5, 5);
+      errorSum = constrain(errorSum, -50, 50);
       pwm = Kp * (error) + Ki * (errorSum) * sampleTime - Kd * gy * sampleTime * DEG_TO_RAD;
-
-      if (pwm > 0) //to take into account the static friction of the motors
-        pwm += 12;
-      if (pwm < 0)
-        pwm -= 12;
+      
+//      if (pwm > 0) //to take into account the static friction of the motors
+//        pwm += 22;
+//      if (pwm < 0)
+//        pwm -= 22;
 
       pwm = constrain(pwm, -255, 255);
 
       prevAngle = currentAngle;
 
       yaw = yaw + gz * DEG_TO_RAD;
-      rot = Kyaw * (yaw - targetYaw);
+//      rot = Kyaw * (yaw - targetYaw);
 
-      if (currentAngle < 0.6 && currentAngle > -0.6 ) //when the robot falls we turn it off
+      if (currentAngle < 0.3 && currentAngle > -0.3 ) //when the robot falls we turn it off
       {
         L_motor(pwm + int(rot * 60));
         R_motor(pwm - int(rot * 60));
@@ -130,27 +141,35 @@ void loop() {
         R_motor(0);
       }
 
-      if (false) {
-        Serial.print("fwd: ");
-        Serial.print(fwd);
-        Serial.print(" rot: ");
-        Serial.print(rot);
-        Serial.print("  Pitch:  ");
-        Serial.print(currentAngle, 4);
-        Serial.print("  Yaw:  ");
-        Serial.print(yaw, 4);
-        Serial.print("  Gy:  ");
-        Serial.print(gy, 4);
-        Serial.print("  PWM:  ");
+      if (true) {
+//        Serial.print("fwd: ");
+//        Serial.print(fwd);
+//        Serial.print(" rot: ");
+//        Serial.print(rot);
+//        Serial.print("  Pitch:  ");
+//        Serial.println(currentAngle, 4);
+        Serial.print("  sum:");
         Serial.print(pwm);
-        Serial.print("  Loop time: ");
-        time_ctr = micros() - time_ctr;
-        Serial.println(time_ctr);
-        time_ctr = micros();
-        Serial.print("Received Yaw: ");
-        Serial.println(app_data.toFloat() - 128);
-        Serial.print("Received Pitch: ");
-        Serial.println((app_data.toFloat() - 128) / 128);
+        Serial.print("  p:");
+        Serial.print(Kp * error);
+        Serial.print("  i:");
+        Serial.print(Ki * errorSum* sampleTime);
+        Serial.print("  d:");
+        Serial.println(Kd * gy * sampleTime * DEG_TO_RAD);
+        //Serial.print("  Yaw:  ");
+        //Serial.print(yaw, 4);
+//        Serial.print("  Gy:  ");
+//        Serial.print(gy, 4);
+//        Serial.print("  PWM:  ");
+//        Serial.println(pwm);
+//        Serial.print("  Loop time: ");
+//        time_ctr = micros() - time_ctr;
+//        Serial.println(time_ctr);
+//        time_ctr = micros();
+        //        Serial.print("Received Yaw: ");
+        //        Serial.println(app_data.toFloat() - 128);
+        //        Serial.print("Received Pitch: ");
+        //        Serial.println((app_data.toFloat() - 128) / 128);
       }
 
     }
@@ -179,35 +198,35 @@ void loop() {
     targetYaw += Ps3.data.analog.stick.lx / 50.0;
   }
 
-  // MIT Inventor
-  if (mit_joy) {
-    if (SerialBT.available()) {
-
-      in_byte = SerialBT.read();
-
-      if (in_byte != '-') //would like to use /n as delimiter but dunno how to send non printables in app inventor
-      {
-        app_data += String(in_byte);
-      }
-      else
-      {
-        if (app_data.startsWith(yaw_ascii))
-        {
-          app_data.setCharAt(0, '0');
-
-          targetYaw = (app_data.toFloat() - 128);
-        }
-
-        else if (app_data.startsWith(pitch_ascii))
-        {
-          app_data.setCharAt(0, '0');
-
-          fwd = (app_data.toFloat() - 128) / 64;
-        }
-        app_data = "";
-      }
-    }
-  }
+  //  // MIT Inventor
+  //  if (mit_joy) {
+  //    if (SerialBT.available()) {
+  //
+  //      in_byte = SerialBT.read();
+  //
+  //      if (in_byte != '-') //would like to use /n as delimiter but dunno how to send non printables in app inventor
+  //      {
+  //        app_data += String(in_byte);
+  //      }
+  //      else
+  //      {
+  //        if (app_data.startsWith(yaw_ascii))
+  //        {
+  //          app_data.setCharAt(0, '0');
+  //
+  //          targetYaw = (app_data.toFloat() - 128);
+  //        }
+  //
+  //        else if (app_data.startsWith(pitch_ascii))
+  //        {
+  //          app_data.setCharAt(0, '0');
+  //
+  //          fwd = (app_data.toFloat() - 128) / 64;
+  //        }
+  //        app_data = "";
+  //      }
+  //    }
+  //  }
 
   targetAngle = fwd * 0.05 + zero_targetAngle;
 
