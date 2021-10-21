@@ -14,17 +14,17 @@
 //#include <DabbleESP32.h>
 #include <Ps3Controller.h>
 
-#define Kp  15000.0  //3000.0  //2700.0  // 2000 //Ku= 8000 tu=
-#define Kd  9000.0    //10.0    //9.0     // 20.0  
-#define Ki  30000.0 //60000.0 //53000.0 //22000    
+#define Kp  8500.0  //3000.0  //2700.0  // 2000 //Ku= 8000 tu=
+#define Kd  6000.0    //9000.0    //9.0     // 20.0  
+#define Ki  30000.0 //30000.0 //53000.0 //22000    
 #define Kyaw 0.02
 #define sampleTime  0.01  // 100 Hz
-#define zero_targetAngle 0.02  // Calibrated point
+#define zero_targetAngle 0.025  // Calibrated point
 
 uint8_t i;
 
 float angles[3];
-float targetAngle = 0.012;
+float targetAngle = 0.0;
 float currentAngle = 0.0, prevAngle = 0.0, error = 0.0, prevError = 0.0, errorSum = 0.0, yaw = 0.0, targetYaw = 0.0;
 int pwm = 0;
 volatile bool controlFlag = false;
@@ -103,10 +103,10 @@ void loop() {
       // Complementary Filter
       getAccelGyro(&ax, &az, &gy, &gz);
       accelPitch = atan2(ax, az) * RAD_TO_DEG;
-      pitch = (tau) * (pitch + (-gy) * sampleTime) + (1 - tau) * (accelPitch);
+      pitch = (tau) * (pitch + (-gy/2) * sampleTime) + (1 - tau) * (accelPitch); //TODO: poruqe hace fata un /2 acá
 
-      //exponential filter
-      currentAngle = pitch * DEG_TO_RAD*0.3 + currentAngle *0.7;
+      //low pass (exponential) filter
+      currentAngle = pitch * DEG_TO_RAD*0.1 + currentAngle *0.9;
 
       // DMP
 //      getEulerAngles_dmp(angles);
@@ -115,25 +115,25 @@ void loop() {
 
       error = currentAngle - targetAngle;
       errorSum += error;
-      errorSum = constrain(errorSum, -50, 50);
+      errorSum = constrain(errorSum, -15, 15);
       pwm = Kp * (error) + Ki * (errorSum) * sampleTime - Kd * gy * sampleTime * DEG_TO_RAD;
       
-//      if (pwm > 0) //to take into account the static friction of the motors
-//        pwm += 22;
-//      if (pwm < 0)
-//        pwm -= 22;
+      if (pwm > -0) //to take into account the static friction of the motors
+        pwm += 12;
+      if (pwm < 0)
+        pwm -= 12;
 
       pwm = constrain(pwm, -255, 255);
 
       prevAngle = currentAngle;
 
       yaw = yaw + gz * DEG_TO_RAD;
-//      rot = Kyaw * (yaw - targetYaw);
+      rot = Kyaw * (yaw - targetYaw);
 
       if (currentAngle < 0.3 && currentAngle > -0.3 ) //when the robot falls we turn it off
       {
-        L_motor(pwm + int(rot * 60));
-        R_motor(pwm - int(rot * 60));
+        L_motor(constrain(pwm + int(rot * 60), -255, 255));
+        R_motor(constrain(pwm - int(rot * 60), -255, 255));
       }
       else
       {
@@ -198,35 +198,35 @@ void loop() {
     targetYaw += Ps3.data.analog.stick.lx / 50.0;
   }
 
-  //  // MIT Inventor
-  //  if (mit_joy) {
-  //    if (SerialBT.available()) {
-  //
-  //      in_byte = SerialBT.read();
-  //
-  //      if (in_byte != '-') //would like to use /n as delimiter but dunno how to send non printables in app inventor
-  //      {
-  //        app_data += String(in_byte);
-  //      }
-  //      else
-  //      {
-  //        if (app_data.startsWith(yaw_ascii))
-  //        {
-  //          app_data.setCharAt(0, '0');
-  //
-  //          targetYaw = (app_data.toFloat() - 128);
-  //        }
-  //
-  //        else if (app_data.startsWith(pitch_ascii))
-  //        {
-  //          app_data.setCharAt(0, '0');
-  //
-  //          fwd = (app_data.toFloat() - 128) / 64;
-  //        }
-  //        app_data = "";
-  //      }
-  //    }
-  //  }
+    // MIT Inventor
+    if (mit_joy) {
+      if (SerialBT.available()) {
+  
+        in_byte = SerialBT.read();
+  
+        if (in_byte != '-') //would like to use /n as delimiter but dunno how to send non printables in app inventor
+        {
+          app_data += String(in_byte);
+        }
+        else
+        {
+          if (app_data.startsWith(yaw_ascii))
+          {
+            app_data.setCharAt(0, '0');
+  
+            targetYaw = (app_data.toFloat() - 128);
+          }
+  
+          else if (app_data.startsWith(pitch_ascii))
+          {
+            app_data.setCharAt(0, '0');
+  
+            fwd = (app_data.toFloat() - 128) / 128;
+          }
+          app_data = "";
+        }
+      }
+    }
 
   targetAngle = fwd * 0.05 + zero_targetAngle;
 
