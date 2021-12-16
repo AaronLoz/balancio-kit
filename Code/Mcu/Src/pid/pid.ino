@@ -29,8 +29,8 @@ float currentAngle = 0.0, prevAngle = 0.0, error = 0.0, prevError = 0.0, errorSu
 int pwm = 0;
 volatile bool controlFlag = false;
 
-bool ps3_joy = true;
-bool mit_joy = false;
+bool ps3_joy = false;
+bool mit_joy = true;
 #define yaw_ascii "Y"
 #define pitch_ascii "P"
 char in_byte;
